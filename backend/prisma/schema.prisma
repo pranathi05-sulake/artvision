@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  avatar    String?
+  projects  Project[]
+  savedArt  SavedArt[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Project {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  roomImageUrl String
+  roomType     String      @default("unknown")
+  roomStyle    String      @default("unknown")
+  wallMaskUrl  String      @default("")
+  depthMapUrl  String      @default("")
+  placements   Placement[]
+  snapshots    Snapshot[]
+  collabRoomId String?
+  isPublic     Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Placement {
+  id           String  @id @default(cuid())
+  projectId    String
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artworkId    String
+  artwork      Artwork @relation(fields: [artworkId], references: [id])
+  frameStyle   String  @default("minimalist_black")
+  frameColor   String  @default("#000000")
+  matColor     String?
+  matWidth     Float?
+  glassFinish  String  @default("none")
+  positionX    Float   @default(0)
+  positionY    Float   @default(0)
+  width        Float   @default(60)
+  height       Float   @default(90)
+  rotation     Float   @default(0)
+  lightingMode String  @default("natural")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([artworkId])
+  @@map("placements")
+}
+
+model Artwork {
+  id           String      @id @default(cuid())
+  title        String
+  artistName   String?
+  imageUrl     String
+  thumbnailUrl String
+  style        String[]
+  colors       String[]
+  sourceType   String      @default("marketplace")
+  sourceUrl    String?
+  price        Float?
+  currency     String?     @default("USD")
+  embedding    Bytes?
+  placements   Placement[]
+  savedBy      SavedArt[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([sourceType])
+  @@map("artworks")
+}
+
+model SavedArt {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artworkId String
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, artworkId])
+  @@map("saved_art")
+}
+
+model Snapshot {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String   @default("Untitled")
+  imageUrl  String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@map("snapshots")
+}
+
+model CollabRoom {
+  id           String   @id @default(cuid())
+  projectId    String
+  participants Json     @default("[]")
+  history      Json[]
+  snapshots    Json[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("collab_rooms")
+}

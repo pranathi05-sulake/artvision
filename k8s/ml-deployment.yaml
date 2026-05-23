@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wall-art-ml
+  labels:
+    app: wall-art-ml
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wall-art-ml
+  template:
+    metadata:
+      labels:
+        app: wall-art-ml
+    spec:
+      containers:
+        - name: ml-service
+          image: wall-art-ml:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DEVICE
+              value: "cuda"
+            - name: MODEL_CACHE_DIR
+              value: "/models"
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: wall-art-config
+                  key: redis-url
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2000m"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "16Gi"
+              cpu: "4000m"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: ml-models-pvc
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wall-art-ml-svc
+spec:
+  selector:
+    app: wall-art-ml
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-models-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: gp3

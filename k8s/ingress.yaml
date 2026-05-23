@@ -1,0 +1,63 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wall-art-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/websocket-services: "wall-art-backend-svc"
+spec:
+  tls:
+    - hosts:
+        - artvision.app
+        - api.artvision.app
+      secretName: wall-art-tls
+  rules:
+    - host: artvision.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wall-art-frontend-svc
+                port:
+                  number: 80
+    - host: api.artvision.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wall-art-backend-svc
+                port:
+                  number: 4000
+          - path: /ml
+            pathType: Prefix
+            backend:
+              service:
+                name: wall-art-ml-svc
+                port:
+                  number: 8000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wall-art-config
+data:
+  api-url: "https://api.artvision.app"
+  redis-url: "redis://redis-master:6379"
+  ml-service-url: "http://wall-art-ml-svc:8000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wall-art-secrets
+type: Opaque
+stringData:
+  database-url: "postgresql://user:password@postgres:5432/wall_art"
+  jwt-secret: "change-this-in-production"
+  nextauth-secret: "change-this-in-production"
